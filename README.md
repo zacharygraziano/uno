@@ -15,6 +15,9 @@ val results = game.run
 
 `run` is a `Stream[GameState]` which contains all changes to the game's state from start to finish. 
 
+## Example
+There's an example of using it it [here](https://github.com/zacharygraziano/uno/blob/master/src/it/scala/tech/dougie/uno/Example.scala). You can run it with `sbt it/test`.
+
 ## Shortcomings
 
 + The default strategies are not very sophisticated.
