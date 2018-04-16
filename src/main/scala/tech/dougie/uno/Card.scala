@@ -29,12 +29,12 @@ sealed trait Card {
 }
 case object Wild extends Card {
   def value: Int = 50
-  override def toString: String = "wild card"
+  override def toString: String = "wild"
   override def isWild: Boolean = true
 }
 case object WildDraw4 extends Card {
   def value: Int = 50
-  override def toString: String = "wild draw 4 card"
+  override def toString: String = "wild draw 4"
   override def isWild: Boolean = true
 }
 final case class Numbered(num: Int, color: Color) extends Card {

@@ -19,9 +19,9 @@ object Example extends App {
   def summarize(change: Seq[RoundState]): String = {
     val Seq(before, after) = change
     val whoMoved = before.player
+    val afterMove = after.players.find(_.id == whoMoved.id).get
     val whatTheyPlayed = after.faceCard
     val howManyCards = after.others.find(_.id == whoMoved.id).map(_.hand.seq.length).get
-
-    s"$whoMoved played a $whatTheyPlayed and now has $howManyCards"
+    s"$whoMoved taking a turn:\n\t${whoMoved.hand}\nPlaying a ${whatTheyPlayed}\n\t${afterMove.hand}\n\n"
   }
 }

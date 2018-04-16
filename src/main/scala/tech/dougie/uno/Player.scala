@@ -45,7 +45,7 @@ final case class Hand(cards: Map[Card, Int]) {
   def +(card: Card): Hand =
     Hand(cards.get(card).map(c => cards.updated(card, c + 1)).getOrElse(cards + (card -> 1)))
   def ++(cards: Seq[Card]): Hand = cards.foldLeft(this)((acc, card) => acc + card)
-  override def toString: String = seq.mkString("[", " ", "]")
+  override def toString: String = seq.mkString("[", ", ", "]")
 }
 object Hand {
   def apply(cards: Card*): Hand = Hand(
