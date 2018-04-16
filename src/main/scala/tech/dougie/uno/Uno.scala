@@ -46,7 +46,7 @@ final class Uno(
 
   /** Run the entire game. */
   lazy val run: Stream[GameState] =
-    Stream.iterate(initialGameState)(playRound).takeWhile(!gameOver(_))
+    Stream.iterate(initialGameState)(playRound).tail.takeWhile(!gameOver(_))
 
   /** Play a single round. A round itself is a Stream[RoundState].
     * @param gameState the state of the game at the end of the previous round
