@@ -172,7 +172,7 @@ final class Uno(
       val victim = others.head
       roundState.copy(
         player = others.tail.head,
-        others = others.tail.tail :+ victim.copy(hand = victim.hand ++ drawn) :+ player,
+        others = others.tail.tail :+ player :+ victim.copy(hand = victim.hand ++ drawn),
         pile = rest
       )
     } else {

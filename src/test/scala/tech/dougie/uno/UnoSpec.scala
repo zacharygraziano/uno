@@ -87,6 +87,7 @@ class UnoSpec extends FunSpec with Matchers {
     it("skip should skip players in a multi player game") {
       val next = game.nextPlayer(ActionCard(Skip, Red), game.startRound(game.initialGameState))
       next.player.id shouldBe 2
+      next.others.map(_.id) shouldBe Vector(3, 0, 1)
     }
   }
 
