@@ -33,7 +33,7 @@ final case class Player(
 
 final case class Hand(cards: Map[Card, Int]) {
   def count(card: Card): Int = cards.getOrElse(card, 0)
-  def seq: Vector[Card] = cards.flatMap { case (card, count) => Vector.fill(count)(card) }.toVector
+  lazy val seq: Vector[Card] = cards.flatMap { case (card, count) => Vector.fill(count)(card) }.toVector
   def -(card: Card): Hand =
     Hand(
       cards
@@ -45,6 +45,7 @@ final case class Hand(cards: Map[Card, Int]) {
   def +(card: Card): Hand =
     Hand(cards.get(card).map(c => cards.updated(card, c + 1)).getOrElse(cards + (card -> 1)))
   def ++(cards: Seq[Card]): Hand = cards.foldLeft(this)((acc, card) => acc + card)
+  override def toString: String = seq.mkString("[", " ", "]")
 }
 object Hand {
   def apply(cards: Card*): Hand = Hand(

@@ -155,7 +155,7 @@ final class Uno(
     draw: Int,
     newMove: Boolean = true): (RoundState, Seq[Card]) = {
     import roundState._
-    val (drawn, rest) = roundState.pile splitAt draw
+    val (drawn, rest) = drawFromDeck(1, roundState)
     val (nextPlayer, nextOthers) =
       if (newMove) others.head -> (others.tail :+ player.copy(hand = player.hand ++ drawn))
       else player.copy(hand = player.hand ++ drawn) -> others
