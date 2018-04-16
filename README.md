@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/zacharygraziano/uno.svg?branch=master)](https://travis-ci.org/zacharygraziano/uno)
+[![codecov](https://codecov.io/gh/zacharygraziano/uno/branch/master/graph/badge.svg)](https://codecov.io/gh/zacharygraziano/uno)
+
 # Uno
 
 This is a simulation of the game UNO.
