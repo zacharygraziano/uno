@@ -26,7 +26,7 @@ import org.scalatest.{FunSpec, Matchers}
 class UnoSpec extends FunSpec with Matchers {
 
   describe("Game initiation") {
-    val game = new Uno(numPlayers = 4, strategy = Uno.DefaultStrategy)
+    val game = Uno(numPlayers = 4)
     it("should create the correct number of cards") {
       game.allCardsSeq should have length 108
     }
@@ -42,7 +42,7 @@ class UnoSpec extends FunSpec with Matchers {
   }
 
   describe("compatibility") {
-    val game = new Uno(numPlayers = 2, strategy = Uno.DefaultStrategy)
+    val game = Uno(numPlayers = 2)
     val compatible: (Card, Card) => Boolean = game.compatible(_, _, Red)
     it("anything is compatible with Wild") {
       game.allCardsSeq.foreach(c => compatible(Wild, c) shouldBe true)
@@ -63,7 +63,7 @@ class UnoSpec extends FunSpec with Matchers {
   }
 
   describe("2 player games.") {
-    val game = new Uno(numPlayers = 2, strategy = Uno.DefaultStrategy)
+    val game = Uno(numPlayers = 2)
     it("skip should skip players in a 2 player game") {
       val next = game.nextPlayer(ActionCard(Skip, Red), game.startRound(game.initialGameState))
       next.player.id shouldBe 0
@@ -75,7 +75,7 @@ class UnoSpec extends FunSpec with Matchers {
   }
 
   describe("3+ player games") {
-    val game = new Uno(numPlayers = 4, strategy = Uno.DefaultStrategy)
+    val game = Uno(numPlayers = 4)
     it("reverse should reverse order of player in a multiplayer game") {
       val next = game.nextPlayer(ActionCard(Reverse, Blue), game.startRound(game.initialGameState))
       next.player.id shouldBe 3
@@ -92,7 +92,7 @@ class UnoSpec extends FunSpec with Matchers {
   }
 
   describe("state correctness") {
-    val game = new Uno(numPlayers = 5, strategy = Uno.DefaultStrategy)
+    val game = Uno(numPlayers = 5)
     val ranIt = game.playRound(game.initialGameState).history
     it("should never drop players") {
       ranIt.foreach { gs =>
@@ -105,13 +105,13 @@ class UnoSpec extends FunSpec with Matchers {
     def illegalStrategy(playable: Seq[Card], state: RoundState): Option[Card] = {
       Some(Numbered(12, Red))
     }
-    val badgame = new Uno(numPlayers = 3, illegalStrategy)
+    val badgame = Uno(numPlayers = 3, PlayerConfig(illegalStrategy, Uno.RandomWild))
     it("should not allow an illegal move to be made") {
       an[IllegalArgumentException] shouldBe thrownBy(
         badgame.playRound(badgame.initialGameState).history.toList)
     }
     val wildgame =
-      new Uno(numPlayers = 3, strategy = Uno.DefaultStrategy, wildStrategy = _ => Red)
+      Uno(numPlayers = 3,  PlayerConfig(Uno.DefaultStrategy, wildStrategy = _ => Red))
     it("should listen to a custom wild strategy") {
       wildgame
         .playRound(wildgame.initialGameState)

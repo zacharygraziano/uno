@@ -4,7 +4,7 @@ import java.io.PrintWriter
 
 object Example extends App {
   val pw = new PrintWriter(new java.io.File(s"${System.getenv("HOME")}/uno.txt"))
-  val uno = new Uno(numPlayers = 4)
+  val uno = Uno(numPlayers = 4)
   uno.run.zipWithIndex.foreach {
     case (gs, roundNum) =>
       pw.println(s"Round number ${roundNum + 1}")

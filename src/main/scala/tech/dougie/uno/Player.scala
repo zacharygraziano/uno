@@ -21,15 +21,19 @@
 
 package tech.dougie.uno
 
-final case class Player(
-  id: Int,
-  score: Int = 0,
-  hand: Hand = Hand(Map.empty[Card, Int]),
-  playStrategy: (Seq[Card], RoundState) => Option[Card],
-  wildStrategy: RoundState => Color) {
-  def addPoints(more: Int): Player = copy(score = score + more)
-  override def toString: String = s"player $id"
-}
+/** The strategy a player uses.
+  * @param playStrategy A function that is used to determine which cards players ought to
+*                 play. The function takes as arguments all the cards in the player's hand
+*                 that they may play this turn as well as the state of the game. It must either
+*                 return a card that is in the hand and compatible with the face card or None if
+*                 the player does not wish to play a card.
+* @param wildStrategy A function that determines how the players pick the active color
+*                  when a wild card is played.
+  */
+final case class PlayerConfig(
+                             playStrategy: (Seq[Card], RoundState) => Option[Card],
+                             wildStrategy: RoundState => Color
+                             )
 
 final case class Hand(cards: Map[Card, Int]) {
   def count(card: Card): Int = cards.getOrElse(card, 0)
@@ -52,3 +56,15 @@ object Hand {
     cards.groupBy(identity).mapValues(_.length)
   )
 }
+
+final case class Player private[uno] (
+                                       id: Int,
+                                       score: Int = 0,
+                                       hand: Hand = Hand(Map.empty[Card, Int]),
+                                       playStrategy: (Seq[Card], RoundState) => Option[Card],
+                                       wildStrategy: RoundState => Color) {
+  def addPoints(more: Int): Player = copy(score = score + more)
+  override def toString: String = s"player $id"
+}
+
+
