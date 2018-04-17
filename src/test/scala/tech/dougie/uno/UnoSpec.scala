@@ -39,6 +39,15 @@ class UnoSpec extends FunSpec with Matchers {
             .others)
       deck ++ players.flatMap(_.hand.seq) should contain theSameElementsAs game.allCardsSeq
     }
+    it("fails when too many or too few players are supplied") {
+      an[IllegalArgumentException] shouldBe thrownBy(Uno(numPlayers = 1))
+      an[IllegalArgumentException] shouldBe thrownBy(Uno(numPlayers = 11))
+    }
+    it("construction succeeds when any legal number of players is supplied") {
+      (2 to 10).foreach { n =>
+        noException shouldBe thrownBy(Uno(numPlayers = n))
+      }
+    }
   }
 
   describe("compatibility") {
@@ -111,7 +120,7 @@ class UnoSpec extends FunSpec with Matchers {
         badgame.playRound(badgame.initialGameState).history.toList)
     }
     val wildgame =
-      Uno(numPlayers = 3,  PlayerConfig(Uno.DefaultStrategy, wildStrategy = _ => Red))
+      Uno(numPlayers = 3, PlayerConfig(Uno.DefaultStrategy, wildStrategy = _ => Red))
     it("should listen to a custom wild strategy") {
       wildgame
         .playRound(wildgame.initialGameState)
@@ -120,6 +129,40 @@ class UnoSpec extends FunSpec with Matchers {
         .foreach { gs =>
           gs.activeColor shouldBe Red
         }
+    }
+    def keepHighValue(playable: Seq[Card], state: RoundState): Option[Card] = {
+      if (playable.nonEmpty) Some(playable.minBy(_.value)) else None
+    }
+    val strategy1 = PlayerConfig(Uno.DefaultStrategy, wildStrategy = _ => Red)
+    val strategy2 = PlayerConfig(keepHighValue, wildStrategy = _ => Blue)
+    val game = Uno(Seq(strategy1, strategy2), Uno.DefaultEnd _, 7)
+    val firstRound = game.run.head.history
+
+    it("should listen to the play strategy for one player") {
+      val init = firstRound.head
+      val playable = game.playableCards(init.player, init.faceCard, init.activeColor)
+      val cardPlayed = init.player.playStrategy(playable, init)
+      cardPlayed.map(_.value) shouldBe Uno.when(playable.nonEmpty)(playable.map(_.value).max)
+    }
+    it("should listen to the play strategy for another player") {
+      // The probability of this .get failing is so incredibly low
+      // (when was the last time only one person ever took a turn in a two player game?)
+      val otherPlayerState = firstRound.find(_.player.id == 1).get
+      val playable = game.playableCards(
+        otherPlayerState.player,
+        otherPlayerState.faceCard,
+        otherPlayerState.activeColor)
+      val cardPlayed = otherPlayerState.player.playStrategy(playable, otherPlayerState)
+      cardPlayed.map(_.value) shouldBe Uno.when(playable.nonEmpty)(playable.map(_.value).min)
+    }
+    it("should listen to wild strategies") {
+      firstRound.sliding(2).foreach {
+        case Seq(before, after) =>
+          if (after.faceCard.isWild) {
+            if (before.player.id == 0) after.activeColor shouldBe Red
+            else after.activeColor shouldBe Blue
+          }
+      }
     }
   }
 }

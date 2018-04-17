@@ -24,7 +24,7 @@ package tech.dougie.uno
 import scala.util.Random
 
 final class Uno private (
-                        allPlayers: Vector[Player],
+  allPlayers: Vector[Player],
   gameOver: GameState => Boolean = Uno.DefaultEnd,
   cardsInHand: Int) {
   import Uno.when
@@ -34,6 +34,9 @@ final class Uno private (
     Stream.iterate(initialGameState)(playRound).tail.takeWhile(!gameOver(_))
 
   private val numPlayers = allPlayers.length
+  require(
+    numPlayers >= 2 && numPlayers <= 10,
+    "Cannot play with fewer than 2 or greater than 10 players")
 
   /** Play a single round. A round itself is a Stream[RoundState].
     * @param gameState the state of the game at the end of the previous round
@@ -206,19 +209,24 @@ final class Uno private (
   }
 }
 object Uno {
+
   /** A game of UNO.
     * @param numPlayers The number of players in the game. Must be between 2 and 10.
     * @param playerStrategy The strategy that all players will use.
     * @param gameOver A function that determines whether the game has ended.
     * @param cardsInHand How many cards the players start with.
     */
-  def apply(numPlayers: Int,
-            playerStrategy: PlayerConfig = DefaultConfig,
-            gameOver: GameState => Boolean = DefaultEnd,
-            cardsInHand: Int = 7): Uno = {
-    val players = Vector.tabulate(numPlayers)(i =>
-    Player(id = i, playStrategy = playerStrategy.playStrategy, wildStrategy = playerStrategy.wildStrategy)
-    )
+  def apply(
+    numPlayers: Int,
+    playerStrategy: PlayerConfig = DefaultConfig,
+    gameOver: GameState => Boolean = DefaultEnd,
+    cardsInHand: Int = 7): Uno = {
+    val players = Vector.tabulate(numPlayers)(
+      i =>
+        Player(
+          id = i,
+          playStrategy = playerStrategy.playStrategy,
+          wildStrategy = playerStrategy.wildStrategy))
     new Uno(players, gameOver, cardsInHand)
   }
 
@@ -228,16 +236,19 @@ object Uno {
     * @param gameOver Criteria for game to end.
     * @param cardsInHand Number of cards each player gets at start of round.
     */
-  def apply(playerStrategies: Seq[PlayerConfig],
-            gameOver: GameState => Boolean,
-            cardsInHand: Int): Uno = {
-    val players = playerStrategies.zipWithIndex.map { case (PlayerConfig(play, wild), id) =>
+  def apply(
+    playerStrategies: Seq[PlayerConfig],
+    gameOver: GameState => Boolean,
+    cardsInHand: Int): Uno = {
+    val players = playerStrategies.zipWithIndex.map {
+      case (PlayerConfig(play, wild), id) =>
         Player(id = id, playStrategy = play, wildStrategy = wild)
     }.toVector
     new Uno(players, gameOver, cardsInHand)
   }
 
   lazy val DefaultConfig: PlayerConfig = PlayerConfig(DefaultStrategy, RandomWild)
+
   /** Pick a random color when a wild is played. */
   def RandomWild: RoundState => Color = _ => Color.all(Random.nextInt(Color.all.length))
 
@@ -249,6 +260,6 @@ object Uno {
   /** The official UNO end rule: one player has at least 500 points. */
   def DefaultEnd(state: GameState): Boolean = state.players.exists(_.score >= 500)
 
-  private def when[A](expr: Boolean)(body: => A): Option[A] =
+  private[uno] def when[A](expr: Boolean)(body: => A): Option[A] =
     if (expr) Some(body) else None
 }
