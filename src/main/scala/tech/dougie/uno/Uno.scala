@@ -52,13 +52,13 @@ final class Uno private (
     GameState(finalPlayers.updated(winner, finalPlayers(winner).addPoints(score)), round)
   }
 
-  def roundOver(roundState: RoundState): Boolean = {
+  private[uno] def roundOver(roundState: RoundState): Boolean = {
     (roundState.player +: roundState.others).exists(_.hand.cards.isEmpty)
   }
 
   lazy val initialGameState = GameState(allPlayers, Stream.empty)
 
-  def startRound(gameState: GameState): RoundState = {
+  private[uno] def startRound(gameState: GameState): RoundState = {
     val (deck, players) =
       deal(allCardsSeq, gameState.players.map(_.copy(hand = Hand())).sortBy(_.id))
 
@@ -72,46 +72,58 @@ final class Uno private (
       .getOrElse(startRound(gameState))
   }
 
-  def takeMove(roundState: RoundState): RoundState = {
-    val (afterDraw, playable) =
-      playableCards(roundState.player, roundState.faceCard, roundState.activeColor) match {
-        case Seq() =>
-          val (s, nextCard) = drawCards(roundState, draw = 1, newMove = false)
-          s ->
-            when(compatible(nextCard.head, s.faceCard, s.activeColor))(nextCard.head).toSeq
-        case p => roundState -> p
-      }
-    val chosenCard = afterDraw.player.playStrategy(playable, afterDraw)
-    chosenCard
-      .fold(afterDraw.next) { card =>
-        require(
-          afterDraw.player.hand.cards.contains(card),
-          "Cannot play a card that is not in the current player's hand.")
-        require(
-          compatible(card, roundState.faceCard, roundState.activeColor),
-          "Cannot play a card that is not compatible with the face card."
-        )
-        nextPlayer(card, playCard(card, afterDraw))
-      }
+  private def validate(card: Card, roundState: RoundState): Unit = {
+    require(
+      roundState.player.hand.cards.contains(card),
+      "Cannot play a card that is not in the current player's hand.")
+    require(
+      compatible(card, roundState.faceCard, roundState.activeColor),
+      "Cannot play a card that is not compatible with the face card." +
+        s"Played: $card face: ${roundState.faceCard} active: ${roundState.activeColor}"
+    )
   }
 
-  def playCard(card: Card, roundState: RoundState): RoundState = card match {
+  // When a player either has no playable cards or elects to not play a card,
+  // they must draw a card. They may then optionally play it if it is playable.
+  private[uno] def drawCardAndFinishTurn(roundState: RoundState): RoundState = {
+    val (state, Seq(card)) = drawCards(roundState, draw = 1, newMove = false)
+    if (compatible(card, state.faceCard, state.activeColor) &&
+        state.player.strategy.drawnCardStrategy(card, state)) {
+      nextPlayer(card, playCard(card, state))
+    } else state.next
+  }
+
+  private[uno] def takeMove(roundState: RoundState): RoundState = {
+    val playable = playableCards(roundState.player, roundState.faceCard, roundState.activeColor)
+
+    if (playable.isEmpty) drawCardAndFinishTurn(roundState)
+    else {
+      val cardToPlay =
+        roundState.player.strategy.playStrategy(playable, roundState)
+      cardToPlay.fold(drawCardAndFinishTurn(roundState)) { card =>
+        validate(card, roundState)
+        nextPlayer(card, playCard(card, roundState))
+      }
+    }
+  }
+
+  private[uno] def playCard(card: Card, roundState: RoundState): RoundState = card match {
     case Wild | WildDraw4 =>
       (roundState + card).copy(
         player = roundState.player.copy(hand = roundState.player.hand - card),
-        activeColor = roundState.player.wildStrategy(roundState))
+        activeColor = roundState.player.strategy.wildStrategy(roundState))
     case _ =>
       (roundState + card).copy(
         player = roundState.player.copy(hand = roundState.player.hand - card)
       )
   }
 
-  def playableCards(player: Player, faceCard: Card, activeColor: Color): Seq[Card] = {
+  private[uno] def playableCards(player: Player, faceCard: Card, activeColor: Color): Seq[Card] = {
     player.hand.seq.filter(c => compatible(c, faceCard, activeColor))
   }
 
   // Return the new game state if a turn terminating action occurred.
-  def nextPlayer(cardPlayed: Card, roundState: RoundState): RoundState = {
+  private[uno] def nextPlayer(cardPlayed: Card, roundState: RoundState): RoundState = {
     import roundState._
     cardPlayed match {
       case ActionCard(Draw2, _) => drawTurn(roundState, draw = 2)
@@ -125,7 +137,7 @@ final class Uno private (
     }
   }
 
-  def compatible(card: Card, card1: Card, activeColor: Color): Boolean = {
+  private[uno] def compatible(card: Card, card1: Card, activeColor: Color): Boolean = {
     (card, card1) match {
       case (c1, _) if c1.isWild      => true
       case (c1, face) if face.isWild => activeColor == c1.cardColor.get // Non wild has a color.
@@ -137,7 +149,7 @@ final class Uno private (
     }
   }
 
-  def drawCards(
+  private[uno] def drawCards(
     roundState: RoundState,
     draw: Int,
     newMove: Boolean = true): (RoundState, Seq[Card]) = {
@@ -149,7 +161,7 @@ final class Uno private (
     RoundState(rest, nextPlayer, roundState.faceCard, nextOthers, activeColor) -> drawn
   }
 
-  def drawTurn(
+  private[uno] def drawTurn(
     roundState: RoundState,
     draw: Int
   ): RoundState = {
@@ -172,7 +184,7 @@ final class Uno private (
     }
   }
 
-  lazy val allCards: Map[Card, Int] = {
+  private[uno] lazy val allCards: Map[Card, Int] = {
     Color.all.flatMap { c =>
       val numbered = (1 to 9).map(n => Numbered(n, c) -> 2)
       val action = Seq(Skip, Reverse, Draw2).map(action => ActionCard(action, c) -> 2)
@@ -180,10 +192,12 @@ final class Uno private (
     }.toMap
   }
 
-  lazy val allCardsSeq: Vector[Card] = Hand(allCards).seq
+  private[uno] lazy val allCardsSeq: Vector[Card] = Hand(allCards).seq
 
   // Get a deck and some players with cards.
-  def deal(deck: Vector[Card], players: Vector[Player]): (Vector[Card], Vector[Player]) = {
+  private[uno] def deal(
+    deck: Vector[Card],
+    players: Vector[Player]): (Vector[Card], Vector[Player]) = {
     val shuffled = Random.shuffle(deck)
     players.foldLeft((shuffled, Vector.empty[Player])) {
       case ((currentDeck, accplayers), player) =>
@@ -193,13 +207,13 @@ final class Uno private (
   }
 
   // Might need to reshuffle the discard pile if there aren't enough cards left.
-  def drawFromDeck(draw: Int, roundState: RoundState): (Seq[Card], Seq[Card]) = {
+  private[uno] def drawFromDeck(draw: Int, roundState: RoundState): (Seq[Card], Seq[Card]) = {
     import roundState._
     if (draw < pile.length) roundState.pile.splitAt(draw)
     else pile -> newDrawPile(pile ++ players.flatMap(_.hand.seq) :+ faceCard)
   }
 
-  def newDrawPile(cardsInPlay: Seq[Card]): Seq[Card] = Random.shuffle {
+  private[uno] def newDrawPile(cardsInPlay: Seq[Card]): Seq[Card] = Random.shuffle {
     cardsInPlay
       .foldLeft(allCards) { (acc, card) =>
         acc.updated(card, allCards(card) - 1)
@@ -218,15 +232,16 @@ object Uno {
     */
   def apply(
     numPlayers: Int,
-    playerStrategy: PlayerConfig = DefaultConfig,
+    playerStrategy: PlayerStrategy = PlayerStrategy(),
     gameOver: GameState => Boolean = DefaultEnd,
     cardsInHand: Int = 7): Uno = {
     val players = Vector.tabulate(numPlayers)(
       i =>
         Player(
           id = i,
-          playStrategy = playerStrategy.playStrategy,
-          wildStrategy = playerStrategy.wildStrategy))
+          strategy = playerStrategy
+      )
+    )
     new Uno(players, gameOver, cardsInHand)
   }
 
@@ -237,24 +252,14 @@ object Uno {
     * @param cardsInHand Number of cards each player gets at start of round.
     */
   def apply(
-    playerStrategies: Seq[PlayerConfig],
+    playerStrategies: Seq[PlayerStrategy],
     gameOver: GameState => Boolean,
     cardsInHand: Int): Uno = {
     val players = playerStrategies.zipWithIndex.map {
-      case (PlayerConfig(play, wild), id) =>
-        Player(id = id, playStrategy = play, wildStrategy = wild)
+      case (strat, id) =>
+        Player(id, strategy = strat)
     }.toVector
     new Uno(players, gameOver, cardsInHand)
-  }
-
-  lazy val DefaultConfig: PlayerConfig = PlayerConfig(DefaultStrategy, RandomWild)
-
-  /** Pick a random color when a wild is played. */
-  def RandomWild: RoundState => Color = _ => Color.all(Random.nextInt(Color.all.length))
-
-  /** Shed highest valued cards first to minimize risk. */
-  def DefaultStrategy(playable: Seq[Card], state: RoundState): Option[Card] = {
-    when(playable.nonEmpty)(playable.maxBy(_.value))
   }
 
   /** The official UNO end rule: one player has at least 500 points. */

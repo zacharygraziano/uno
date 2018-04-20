@@ -21,19 +21,38 @@
 
 package tech.dougie.uno
 
+import scala.util.Random
+
 /** The strategy a player uses.
   * @param playStrategy A function that is used to determine which cards players ought to
   *                 play. The function takes as arguments all the cards in the player's hand
   *                 that they may play this turn as well as the state of the game. It must either
   *                 return a card that is in the hand and compatible with the face card or None if
-  *                 the player does not wish to play a card.
+  *                 the player does not wish to play a card. If the player does not play a card, then
+  *                 a card is added to their hand.
+  * @param drawnCardStrategy Called when the player is forced to draw a card and that card is playable.
+  *                          Returns whether the player will play the drawn card.
   * @param wildStrategy A function that determines how the players pick the active color
   *                  when a wild card is played.
   */
-final case class PlayerConfig(
-  playStrategy: (Seq[Card], RoundState) => Option[Card],
-  wildStrategy: RoundState => Color
+final case class PlayerStrategy(
+  playStrategy: (Seq[Card], RoundState) => Option[Card] = PlayerStrategy.DefaultStrategy,
+  drawnCardStrategy: (Card, RoundState) => Boolean = PlayerStrategy.DefaultDrawnStrategy,
+  wildStrategy: RoundState => Color = PlayerStrategy.RandomWild
 )
+object PlayerStrategy {
+
+  /** Pick a random color when a wild is played. */
+  def RandomWild: RoundState => Color = _ => Color.all(Random.nextInt(Color.all.length))
+
+  /** Shed highest valued cards first to minimize risk. */
+  def DefaultStrategy(playable: Seq[Card], state: RoundState): Option[Card] = {
+    Uno.when(playable.nonEmpty)(playable.maxBy(_.value))
+  }
+
+  /** Always play a card if you can. */
+  def DefaultDrawnStrategy(card: Card, roundState: RoundState): Boolean = true
+}
 
 final case class Hand(cards: Map[Card, Int]) {
   def count(card: Card): Int = cards.getOrElse(card, 0)
@@ -60,10 +79,10 @@ object Hand {
 
 final case class Player private[uno] (
   id: Int,
+  strategy: PlayerStrategy,
   score: Int = 0,
-  hand: Hand = Hand(Map.empty[Card, Int]),
-  playStrategy: (Seq[Card], RoundState) => Option[Card],
-  wildStrategy: RoundState => Color) {
+  hand: Hand = Hand(Map.empty[Card, Int])
+) {
   def addPoints(more: Int): Player = copy(score = score + more)
   override def toString: String = s"player $id"
 }

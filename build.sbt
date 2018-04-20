@@ -4,7 +4,7 @@ lazy val uno = project
   .in(file("."))
   .settings(
     name := "uno",
-	organization := "tech.dougie",
+    organization := "tech.dougie",
     libraryDependencies ++= Seq(
       "org.scalatest" %% "scalatest" % "3.0.4" % "test,it"
     ),

@@ -53,7 +53,7 @@ class UnoSpec extends FunSpec with Matchers {
   describe("compatibility") {
     val game = Uno(numPlayers = 2)
     val compatible: (Card, Card) => Boolean = game.compatible(_, _, Red)
-    it("anything is compatible with Wild") {
+    it("wild can be played on top of any card.") {
       game.allCardsSeq.foreach(c => compatible(Wild, c) shouldBe true)
     }
     it("two cards with the same symbol are compatible") {
@@ -68,6 +68,10 @@ class UnoSpec extends FunSpec with Matchers {
       compatible(ActionCard(Skip, Blue), Numbered(8, Blue)) shouldBe true
       compatible(ActionCard(Reverse, Blue), ActionCard(Skip, Blue)) shouldBe true
       compatible(Numbered(3, Red), Numbered(2, Red)) shouldBe true
+    }
+    it("playing a card on a wild is only allowed when it matches the active color") {
+      compatible(ActionCard(Skip, Red), Wild) shouldBe true
+      compatible(ActionCard(Draw2, Blue), Wild) shouldBe false
     }
   }
 
@@ -101,9 +105,9 @@ class UnoSpec extends FunSpec with Matchers {
   }
 
   describe("state correctness") {
-    val game = Uno(numPlayers = 5)
-    val ranIt = game.playRound(game.initialGameState).history
     it("should never drop players") {
+      val game = Uno(numPlayers = 5)
+      val ranIt = game.playRound(game.initialGameState).history
       ranIt.foreach { gs =>
         gs.player.id +: gs.others.map(_.id) should contain theSameElementsAs (0 until 5)
       }
@@ -114,13 +118,13 @@ class UnoSpec extends FunSpec with Matchers {
     def illegalStrategy(playable: Seq[Card], state: RoundState): Option[Card] = {
       Some(Numbered(12, Red))
     }
-    val badgame = Uno(numPlayers = 3, PlayerConfig(illegalStrategy, Uno.RandomWild))
+    val badgame = Uno(numPlayers = 3, PlayerStrategy(illegalStrategy))
     it("should not allow an illegal move to be made") {
       an[IllegalArgumentException] shouldBe thrownBy(
         badgame.playRound(badgame.initialGameState).history.toList)
     }
     val wildgame =
-      Uno(numPlayers = 3, PlayerConfig(Uno.DefaultStrategy, wildStrategy = _ => Red))
+      Uno(numPlayers = 3, PlayerStrategy(wildStrategy = _ => Red))
     it("should listen to a custom wild strategy") {
       wildgame
         .playRound(wildgame.initialGameState)
@@ -133,15 +137,15 @@ class UnoSpec extends FunSpec with Matchers {
     def keepHighValue(playable: Seq[Card], state: RoundState): Option[Card] = {
       if (playable.nonEmpty) Some(playable.minBy(_.value)) else None
     }
-    val strategy1 = PlayerConfig(Uno.DefaultStrategy, wildStrategy = _ => Red)
-    val strategy2 = PlayerConfig(keepHighValue, wildStrategy = _ => Blue)
+    val strategy1 = PlayerStrategy(wildStrategy = _ => Red)
+    val strategy2 = PlayerStrategy(keepHighValue, wildStrategy = _ => Blue)
     val game = Uno(Seq(strategy1, strategy2), Uno.DefaultEnd _, 7)
-    val firstRound = game.run.head.history
+    lazy val firstRound = game.run.head.history
 
     it("should listen to the play strategy for one player") {
       val init = firstRound.head
       val playable = game.playableCards(init.player, init.faceCard, init.activeColor)
-      val cardPlayed = init.player.playStrategy(playable, init)
+      val cardPlayed = init.player.strategy.playStrategy(playable, init)
       cardPlayed.map(_.value) shouldBe Uno.when(playable.nonEmpty)(playable.map(_.value).max)
     }
     it("should listen to the play strategy for another player") {
@@ -152,7 +156,7 @@ class UnoSpec extends FunSpec with Matchers {
         otherPlayerState.player,
         otherPlayerState.faceCard,
         otherPlayerState.activeColor)
-      val cardPlayed = otherPlayerState.player.playStrategy(playable, otherPlayerState)
+      val cardPlayed = otherPlayerState.player.strategy.playStrategy(playable, otherPlayerState)
       cardPlayed.map(_.value) shouldBe Uno.when(playable.nonEmpty)(playable.map(_.value).min)
     }
     ignore("should listen to wild strategies") {
